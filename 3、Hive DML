@@ -1,0 +1,154 @@
+DML（Data Manipulation Language）
+Loading files into tables
+LOAD DATA [LOCAL] INPATH 'filepath' [OVERWRITE] INTO TABLE tablename [PARTITION (partcol1=val1, partcol2=val2 ...)]
+LOCAL：表示输入文件在本地文件系统（Linux），如果没有加LOCAL，hive则会去HDFS上查找该文件。
+
+OVERWRITE：表示如果表中有数据，则先删除数据，再插入新数据，如果没有OVERWRITE，则直接附加数据到表中。
+
+PARTITION：如果表中存在分区，可以按照分区进行导入。
+
+Inserting data into Hive Tables from queries
+Standard syntax:
+INSERT OVERWRITE TABLE tablename1 [PARTITION (partcol1=val1, partcol2=val2 ...) [IF NOT EXISTS]] select_statement1 FROM from_statement;
+INSERT INTO TABLE tablename1 [PARTITION (partcol1=val1, partcol2=val2 ...)] select_statement1 FROM from_statement;
+
+Hive extension (multiple inserts):
+FROM from_statement
+INSERT OVERWRITE TABLE tablename1 [PARTITION (partcol1=val1, partcol2=val2 ...) [IF NOT EXISTS]] select_statement1
+[INSERT OVERWRITE TABLE tablename2 [PARTITION ... [IF NOT EXISTS]] select_statement2]
+[INSERT INTO TABLE tablename2 [PARTITION ...] select_statement2] ...;
+FROM from_statement
+INSERT INTO TABLE tablename1 [PARTITION (partcol1=val1, partcol2=val2 ...)] select_statement1
+[INSERT INTO TABLE tablename2 [PARTITION ...] select_statement2]
+[INSERT OVERWRITE TABLE tablename2 [PARTITION ... [IF NOT EXISTS]] select_statement2] ...;
+
+Hive extension (dynamic partition inserts):
+INSERT OVERWRITE TABLE tablename PARTITION (partcol1[=val1], partcol2[=val2] ...) select_statement FROM from_statement;
+INSERT INTO TABLE tablename PARTITION (partcol1[=val1], partcol2[=val2] ...) select_statement FROM from_statement;
+INSERT OVERWRITE：将覆盖在表或分区的任何现
+
+INSERT INTO：将追加到表或分区，保留原有数据不变（注：INSERT INTO语法只能在开始0.8版本）
+
+multiple inserts：多表插入
+
+dynamic partition inserts：动态分区插入(0.6版本开始)动态分区列必须在最后的SELECT语句中的列中指定，按PARTITION（）子句中的顺序出现
+
+FROM page_view_stg pvs
+INSERT OVERWRITE TABLE page_view PARTITION(dt='2008-06-08', country)
+       SELECT pvs.viewTime, pvs.userid, pvs.page_url, pvs.referrer_url, null, null, pvs.ip, pvs.cnt
+Writing data into the filesystem from queries
+Standard syntax:
+INSERT OVERWRITE [LOCAL] DIRECTORY directory1
+  [ROW FORMAT row_format] [STORED AS file_format] (Note: Only available starting with Hive 0.11.0)
+  SELECT ... FROM ...
+
+Hive extension (multiple inserts):
+FROM from_statement
+INSERT OVERWRITE [LOCAL] DIRECTORY directory1 select_statement1
+[INSERT OVERWRITE [LOCAL] DIRECTORY directory2 select_statement2] ...
+
+
+row_format
+  : DELIMITED [FIELDS TERMINATED BY char [ESCAPED BY char]] [COLLECTION ITEMS TERMINATED BY char]
+        [MAP KEYS TERMINATED BY char] [LINES TERMINATED BY char]
+        [NULL DEFINED AS char] (Note: Only available starting with Hive 0.13)       
+LOCAL：加上LOCAL关键字代表导入本地系统，不加默认导入HDFS
+
+STORED AS:可以指定存储格式
+
+Examples
+
+ hive> insert overwrite local directory '/home/hadoop/data' ROW FORMAT DELIMITED FIELDS TERMINATED BY '\t' 
+select * from stu;
+
+HDFS上查看结果：
+[hadoop@zydatahadoop001 data]$ pwd
+/home/hadoop/data
+
+[hadoop@zydatahadoop001 data]$ cat 000000_0 
+1       zhangsan
+2       lisi   
+Inserting values into tables from SQL
+Standard Syntax:
+INSERT INTO TABLE tablename [PARTITION (partcol1[=val1], partcol2[=val2] ...)] VALUES values_row [, values_row ...]
+
+Where values_row is:
+( value [, value ...] )
+where a value is either null or any valid SQL literal
+Examples
+
+CREATE TABLE students (name VARCHAR(64), age INT, gpa DECIMAL(3, 2))
+  CLUSTERED BY (age) INTO 2 BUCKETS STORED AS ORC;
+
+INSERT INTO TABLE students
+  VALUES ('fred flintstone', 35, 1.28), ('barney rubble', 32, 2.32);
+
+
+CREATE TABLE pageviews (userid VARCHAR(64), link STRING, came_from STRING)
+  PARTITIONED BY (datestamp STRING) CLUSTERED BY (userid) INTO 256 BUCKETS STORED AS ORC;
+
+INSERT INTO TABLE pageviews PARTITION (datestamp = '2014-09-23')
+  VALUES ('jsmith', 'mail.com', 'sports.com'), ('jdoe', 'mail.com', null);
+
+INSERT INTO TABLE pageviews PARTITION (datestamp)
+  VALUES ('tjohnson', 'sports.com', 'finance.com', '2014-09-23'), ('tlee', 'finance.com', null, '2014-09-21');                 
+Select
+hive> select * from emp where deptno=10;
+OK
+7782    CLARK   MANAGER 7839    1981/6/9        2450.0  NULL    10
+7839    KING    PRESIDENT       NULL    1981/11/17      5000.0  NULL    10
+7934    MILLER  CLERK   7782    1982/1/23       1300.0  NULL    10
+Time taken: 1.144 seconds, Fetched: 3 row(s)
+hive> select * from emp where empno <= 7800;
+OK
+7369    SMITH   CLERK   7902    1980/12/17      800.0   NULL    20
+7499    ALLEN   SALESMAN        7698    1981/2/20       1600.0  300.0   30
+7521    WARD    SALESMAN        7698    1981/2/22       1250.0  500.0   30
+7566    JONES   MANAGER 7839    1981/4/2        2975.0  NULL    20
+7654    MARTIN  SALESMAN        7698    1981/9/28       1250.0  1400.0  30
+7698    BLAKE   MANAGER 7839    1981/5/1        2850.0  NULL    30
+7782    CLARK   MANAGER 7839    1981/6/9        2450.0  NULL    10
+7788    SCOTT   ANALYST 7566    1987/4/19       3000.0  NULL    20
+Time taken: 0.449 seconds, Fetched: 8 row(s)
+hive> select * from emp where salary between 1000 and 1500;
+OK
+7521    WARD    SALESMAN        7698    1981/2/22       1250.0  500.0   30
+7654    MARTIN  SALESMAN        7698    1981/9/28       1250.0  1400.0  30
+7844    TURNER  SALESMAN        7698    1981/9/8        1500.0  0.0     30
+7876    ADAMS   CLERK   7788    1987/5/23       1100.0  NULL    20
+7934    MILLER  CLERK   7782    1982/1/23       1300.0  NULL    10
+Time taken: 0.178 seconds, Fetched: 5 row(s)
+hive> select * from emp limit 5;
+OK
+7369    SMITH   CLERK   7902    1980/12/17      800.0   NULL    20
+7499    ALLEN   SALESMAN        7698    1981/2/20       1600.0  300.0   30
+7521    WARD    SALESMAN        7698    1981/2/22       1250.0  500.0   30
+7566    JONES   MANAGER 7839    1981/4/2        2975.0  NULL    20
+7654    MARTIN  SALESMAN        7698    1981/9/28       1250.0  1400.0  30
+Time taken: 0.47 seconds, Fetched: 5 row(s)
+
+hive> select * from emp where empno in(7566,7499);
+OK
+7499    ALLEN   SALESMAN        7698    1981/2/20       1600.0  300.0   30
+7566    JONES   MANAGER 7839    1981/4/2        2975.0  NULL    20
+Time taken: 0.4 seconds, Fetched: 2 row(s)
+hive> select * from emp where comm is not null;
+OK
+7499    ALLEN   SALESMAN        7698    1981/2/20       1600.0  300.0   30
+7521    WARD    SALESMAN        7698    1981/2/22       1250.0  500.0   30
+7654    MARTIN  SALESMAN        7698    1981/9/28       1250.0  1400.0  30
+7844    TURNER  SALESMAN        7698    1981/9/8        1500.0  0.0     30
+Time taken: 0.262 seconds, Fetched: 4 row(s)            
+Update
+Standard Syntax:
+UPDATE tablename SET column = value [, column = value ...] [WHERE expression]    
+Delete
+Standard Syntax:
+DELETE FROM tablename [WHERE expression]
+Merge
+Standard Syntax:
+MERGE INTO <target table> AS T USING <source expression/table> AS S
+ON <boolean expression1>
+WHEN MATCHED [AND <boolean expression2>] THEN UPDATE SET <set clause list>
+WHEN MATCHED [AND <boolean expression3>] THEN DELETE
+WHEN NOT MATCHED [AND <boolean expression4>] THEN INSERT VALUES<value list>
