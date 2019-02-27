@@ -1,0 +1,225 @@
+分区表
+分区表实际上就是对应一个HDFS文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过WHERE子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。
+
+创建分区表语法
+hive (default)> create table dept_partition(
+               deptno int, dname string, loc string
+               )
+               partitioned by (month string)
+               row format delimited fields terminated by '\t';
+加载数据到分区表中
+hive (default)> load data local inpath '/opt/module/datas/dept.txt' into table default.dept_partition partition(month='201709');
+hive (default)> load data local inpath '/opt/module/datas/dept.txt' into table default.dept_partition partition(month='201708');
+hive (default)> load data local inpath '/opt/module/datas/dept.txt' into table default.dept_partition partition(month='201707');
+ 
+查询分区表中数据
+单分区查询
+
+hive (default)> select * from dept_partition where month='201709';
+
+OK
+10      ACCOUNTING      NEWYORK 201709
+10      ACCOUNTING      NEWYORK 201709
+10      ACCOUNTING      NEWYORK 201709
+20      RESEARCH        DALLAS  201709
+20      RESEARCH        DALLAS  201709
+20      RESEARCH        DALLAS  201709
+30      OPERATIONS      BOSTON  201709
+30      OPERATIONS      BOSTON  201709
+30      OPERATIONS      BOSTON  201709
+Time taken: 0.362 seconds, Fetched: 9 row(s)
+多分区联合查询
+
+hive (default)> select * from dept_partition where month='201709' union all select * from dept_partition where month='201708';
+
+OK
+10      ACCOUNTING      NEWYORK 201709
+10      ACCOUNTING      NEWYORK 201709
+10      ACCOUNTING      NEWYORK 201709
+20      RESEARCH        DALLAS  201709
+20      RESEARCH        DALLAS  201709
+20      RESEARCH        DALLAS  201709
+30      OPERATIONS      BOSTON  201709
+30      OPERATIONS      BOSTON  201709
+30      OPERATIONS      BOSTON  201709
+10      ACCOUNTING      NEWYORK 201708
+10      ACCOUNTING      NEWYORK 201708
+10      ACCOUNTING      NEWYORK 201708
+20      RESEARCH        DALLAS  201708
+20      RESEARCH        DALLAS  201708
+20      RESEARCH        DALLAS  201708
+30      OPERATIONS      BOSTON  201708
+30      OPERATIONS      BOSTON  201708
+30      OPERATIONS      BOSTON  201708
+Time taken: 30.91 seconds, Fetched: 18 row(s)
+增加分区
+增加单个分区
+
+hive (default)> alter table dept_partition add partition(month='201706');
+同时创建多个分区
+
+hive (default)>  alter table dept_partition add partition(month='201705') partition(month='201704');
+删除分区
+删除单个分区
+
+hive (default)> alter table dept_partition drop partition (month='201704');
+同时删除多个分区
+
+hive (default)> alter table dept_partition drop partition (month='201705'), partition (month='201706');
+查看分区表有多少分区
+hive>show partitions dept_partition;
+查看分区表结构
+hive (default)> desc formatted dept_partition;
+OK
+col_name        data_type       comment
+# col_name              data_type               comment             
+
+deptno                  int                                         
+dname                   string                                      
+loc                     string                                      
+
+# Partition Information          
+# col_name              data_type               comment             
+
+month                   string                                      
+
+# Detailed Table Information             
+Database:               default                  
+Owner:                  root                     
+CreateTime:             Wed Jun 20 13:53:42 CST 2018     
+LastAccessTime:         UNKNOWN                  
+Protect Mode:           None                     
+Retention:              0                        
+Location:               hdfs://mycluster/user/hive/warehouse/dept_partition      
+Table Type:             MANAGED_TABLE            
+Table Parameters:                
+        transient_lastDdlTime   1529474022          
+
+# Storage Information            
+SerDe Library:          org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe       
+InputFormat:            org.apache.hadoop.mapred.TextInputFormat         
+OutputFormat:           org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat       
+Compressed:             No                       
+Num Buckets:            -1                       
+Bucket Columns:         []                       
+Sort Columns:           []                       
+Storage Desc Params:             
+        field.delim             \t                  
+        serialization.format    \t                  
+Time taken: 0.09 seconds, Fetched: 34 row(s)
+分区表注意事项
+创建二级分区表
+hive (default)> create table dept_partition2(
+               deptno int, dname string, loc string
+               )
+               partitioned by (month string, day string)
+               row format delimited fields terminated by '\t';
+正常的加载数据
+加载数据到二级分区表中
+
+hive (default)> load data local inpath '/opt/module/datas/dept.txt' into table default.dept_partition2 partition(month='201709', day='13');
+查询分区数据
+
+hive (default)> select * from dept_partition2 where month='201709' and day='13';
+把数据直接上传到分区目录上，让分区表和数据产生关联的两种方式
+方式一：上传数据后修复
+
+hive (default)> dfs -mkdir -p /user/hive/warehouse/dept_partition2/month=201709/day=12;
+hive (default)> dfs -put /opt/module/datas/dept.txt  /user/hive/warehouse/dept_partition2/month=201709/day=12;
+查询数据（查询不到刚上传的数据）
+
+hive (default)> select * from dept_partition2 where month='201709' and day='12';
+执行修复命令
+
+hive>msck repair table dept_partition2;
+再次查询数据
+
+hive (default)> select * from dept_partition2 where month='201709' and day='12';
+方式二：上传数据后添加分区
+
+hive (default)> dfs -mkdir -p /user/hive/warehouse/dept_partition2/month=201709/day=11;
+hive (default)> dfs -put /opt/module/datas/dept.txt  /user/hive/warehouse/dept_partition2/month=201709/day=11;
+执行添加分区
+
+hive (default)> alter table dept_partition2 add partition(month='201709', day='11');
+查询数据
+
+hive (default)> select * from dept_partition2 where month='201709' and day='11';
+分桶表
+分区针对的是数据的存储路径；分桶针对的是数据文件。
+分区提供一个隔离数据和优化查询的便利方式。不过，并非所有的数据集都可形成合理的分区，特别是之前所提到过的要确定合适的划分大小这个疑虑。
+
+分桶是将数据集分解成更容易管理的若干部分的另一个技术。
+
+创建分桶表，通过直接导入数据文件的方式
+创建分桶表
+
+hive> create table stu_buck(id int, name string)
+clustered by(id) 
+into 4 buckets
+row format delimited fields terminated by '\t';
+查看表结构
+
+hive> desc formatted stu_buck;
+Num Buckets:            4 
+导入数据到分桶表中
+
+hive> load data local inpath '/opt/module/datas/student.txt' into table stu_buck;
+查看创建的分桶表中是否分成4个桶
+
+
+发现并没有分成4个桶。是什么原因呢？
+
+创建分桶表，数据通过子查询的方式导入
+先建一个普通的stu表
+
+hive> create table stu(id int, name string) row format delimited fields terminated by '\t';
+向普通的stu表中导入数据
+
+hive> load data local inpath '/opt/module/datas/student.txt' into table stu;
+清空stu_buck表中数据
+
+hive> truncate table stu_buck;
+hive> select * from stu_buck;
+导入数据到分桶表，通过子查询的方式
+
+hive> insert into table stu_buck select id, name from stu cluster by(id);
+发现还是只有一个分桶
+
+
+需要设置一个属性
+
+hive> set hive.enforce.bucketing=true;
+hive> set mapreduce.job.reduces=-1;
+hive> insert into table stu_buck select id, name from stu cluster by(id);
+查看创建的分桶表中是否分成4个桶
+
+
+分桶抽样查询
+对于非常大的数据集，有时用户需要使用的是一个具有代表性的查询结果而不是全部结果。Hive可以通过对表进行抽样来满足这个需求。
+
+查询表stu_buck中的数据
+
+hive> select * from stu_buck TABLESAMPLE(bucket 1 out of 4 on id);
+注：tablesample是抽样语句，语法：TABLESAMPLE(BUCKET x OUT OF y)
+y必须是table总bucket数的倍数或者因子。
+
+hive根据y的大小，决定抽样的比例。
+
+例如，table总共分了4份，当y=2时，抽取(4/2=)2个bucket的数据，当y=8时，抽取(4/8=)1/2个bucket的数据。
+
+x表示从哪个bucket开始抽取。
+
+例如，table总bucket数为4，tablesample(bucket 4 out of 4)，表示总共抽取（4/4=）1个bucket的数据，抽取第4个bucket的数据。
+
+数据块抽样
+Hive提供了另外一种按照百分比进行抽样的方式，这种事基于行数的，按照输入路径下的数据块百分比进行的抽样。
+
+hive> select * from stu tablesample(0.1 percent);
+注：这种抽样方式不一定适用于所有的文件格式。另外，这种抽样的最小抽样单元是一个HDFS数据块。因此，如果表的数据大小小于普通的块大小128M的话，那么将会返回所有行。
+基于百分比的抽样方式提供了一个变量，用于控制基于数据块的调优的种子信息。
+
+<property>
+    <name>hive.sample.seednumber</name>
+    <value>0</value>
+</property>
