@@ -1,0 +1,192 @@
+聚合函数
+常用聚合函数：sum，count，max，min，avg。
+hive> select * from emp;
+OK
+7369    SMITH   CLERK   7902    1980/12/17      800.0   NULL    20
+7499    ALLEN   SALESMAN        7698    1981/2/20       1600.0  300.0   30
+7521    WARD    SALESMAN        7698    1981/2/22       1250.0  500.0   30
+7566    JONES   MANAGER 7839    1981/4/2        2975.0  NULL    20
+7654    MARTIN  SALESMAN        7698    1981/9/28       1250.0  1400.0  30
+7698    BLAKE   MANAGER 7839    1981/5/1        2850.0  NULL    30
+7782    CLARK   MANAGER 7839    1981/6/9        2450.0  NULL    10
+7788    SCOTT   ANALYST 7566    1987/4/19       3000.0  NULL    20
+7839    KING    PRESIDENT       NULL    1981/11/17      5000.0  NULL    10
+7844    TURNER  SALESMAN        7698    1981/9/8        1500.0  0.0     30
+7876    ADAMS   CLERK   7788    1987/5/23       1100.0  NULL    20
+7900    JAMES   CLERK   7698    1981/12/3       950.0   NULL    30
+7902    FORD    ANALYST 7566    1981/12/3       3000.0  NULL    20
+7934    MILLER  CLERK   7782    1982/1/23       1300.0  NULL    10
+Time taken: 5.998 seconds, Fetched: 14 row(s)
+查询员工的最大、最小、平均工资及所有工资的和
+hive> select max(salary),min(salary),avg(salary),sum(salary) from emp;
+OK
+5000.0  800.0   2073.214285714286       29025.0
+查询记录数
+hive> select count(*) from emp;
+OK
+14
+分组函数
+使用Group by时，在Group by后面出现的字段也要出现在select后面。 会执行mapreduce
+按照部门进行分组
+hive> select deptno from emp group by deptno;
+OK
+10
+20
+30
+查询每个部门的平均工资
+hive> select deptno,avg(salary) avg_sal from emp group by deptno; 
+OK 
+10 2916.6666666666665 
+20 2175.0 
+30 1566.6666666666667
+查询平均工资大于2000的部门（使用having子句限定分组查询）
+hive>  select deptno,avg(salary) from emp group by deptno having avg(salary) > 2000;
+OK
+10      2916.6666666666665
+20      2175.0
+按照部门和入职时间进行分组（先按照部门进行分组，然后针对每组按照入职时间进行分组）
+hive> select deptno,hiredate from emp group by deptno,hiredate;
+OK
+10      1981/11/17
+10      1981/6/9
+10      1982/1/23
+20      1980/12/17
+20      1981/12/3
+20      1981/4/2
+20      1987/4/19
+20      1987/5/23
+30      1981/12/3
+30      1981/2/20
+30      1981/2/22
+30      1981/5/1
+30      1981/9/28
+30      1981/9/8
+按照部门和入职时间进行分组并计算出每组的人数
+hive> select deptno,hiredate,count(ename) from emp group by  deptno,hiredate;
+OK
+10      1981/11/17      1
+10      1981/6/9        1
+10      1982/1/23       1
+20      1980/12/17      1
+20      1981/12/3       1
+20      1981/4/2        1
+20      1987/4/19       1
+20      1987/5/23       1
+30      1981/12/3       1
+30      1981/2/20       1
+30      1981/2/22       1
+30      1981/5/1        1
+30      1981/9/28       1
+30      1981/9/8        1
+case when then end（不会执行mr）
+查询员工的姓名和工资等级，按如下规则显示
+salary小于等于1000，显示LOWER
+salaray大于1000且小于等于2000，显示MIDDLE
+salaray大于2000小于等于4000，显示MIDDLE
+sal大于4000，显示highest
+
+hive> select ename, salary, 
+case
+when salary > 1 and salary <= 1000 then 'LOWER'
+when salary > 1000 and salary <= 2000 then 'MIDDLE'
+when salary > 2000 and salary <= 4000 then 'HIGH'
+ELSE 'HIGHEST'
+end
+from emp;
+OK
+SMITH   800.0   LOWER
+ALLEN   1600.0  MIDDLE
+WARD    1250.0  MIDDLE
+JONES   2975.0  HIGH
+MARTIN  1250.0  MIDDLE
+BLAKE   2850.0  HIGH
+CLARK   2450.0  HIGH
+SCOTT   3000.0  HIGH
+KING    5000.0  HIGHEST
+TURNER  1500.0  MIDDLE
+ADAMS   1100.0  MIDDLE
+JAMES   950.0   LOWER
+FORD    3000.0  HIGH
+MILLER  1300.0  MIDDLE
+多表查询
+Hive中Join的关联键必须在ON中指定，不能在Where中指定，否则就会先做笛卡尔积，再过滤。
+
+创建表
+hive> create table join_a(
+    > id int,
+    > name string
+    > )
+    > ROW FORMAT DELIMITED FIELDS TERMINATED BY "\t";
+
+hive> load data local inpath '/home/hadoop/data/join_a.txt' OVERWRITE INTO TABLE join_a;
+
+hive> select * from join_a;
+OK
+1       zhangsan
+2       lisi
+3       wangwu
+
+hive> create table join_b(
+    > id int,
+    > age int
+    > )
+ROW FORMAT DELIMITED FIELDS TERMINATED BY "\t";
+
+hive> load data local inpath '/home/hadoop/data/join_b.txt' OVERWRITE INTO TABLE join_b;
+
+hive> select * from join_b;
+OK
+1       20
+2       30
+4       40
+内连接
+内连接即基于on语句，仅列出表1和表2符合连接条件的数据
+
+hive> select a.id,a.name,b.age from join_a a join join_b b on a.id=b.id;
+OK
+1       zhangsan        20
+2       lisi    30
+
+hive> select * from join_a a join join_b b on a.id=b.id;
+OK
+1       zhangsan        1       20
+2       lisi    2       30
+左连接
+左连接是显示左边的表的所有数据，如果有右边表与之对应，则显示；否则显示null
+
+hive> select a.id,a.name,b.age from join_a a left join join_b b on a.id=b.id;
+OK
+1       zhangsan        20
+2       lisi    30
+3       wangwu NULL
+右连接
+右连接是显示右边的表的所有数据，如果有左边表与之对应，则显示；否则显示null
+
+hive> select a.id,a.name,b.age from join_a a right join join_b b on a.id=b.id;
+OK
+1       zhangsan        20
+2       lisi    30
+NULL    NULL    40
+全连接
+相当于表1和表2的数据都显示，如果没有对应的数据，则显示Null
+
+hive > select a.id,a.name,b.age from join_a a full join join_b b on a.id=b.id;
+OK
+1       zhangsan        20
+2       lisi    30
+3       wangwu1 NULL
+NULL    NULL    40
+笛卡尔积
+笛卡尔积(没有连接条件)会针对表1和表2的每条数据做连接 join(cross join)
+
+hive > select a.id,a.name,b.age from join_a a cross join join_b b;
+OK
+1       zhangsan        20
+1       zhangsan        30
+1       zhangsan        40
+2       lisi    20
+2       lisi    30
+2       lisi    40
+3       wangwu1 20
+3       wangwu1 30
+3       wangwu1 40
