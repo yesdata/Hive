@@ -1,0 +1,130 @@
+Hive内置函数
+在Hive中给我们内置了很多函数官方文档地址
+
+也可以在启动hive后输入命令查看函数
+
+hive> SHOW FUNCTIONS;
+hive> DESCRIBE FUNCTION <function_name>;
+hive> DESCRIBE FUNCTION EXTENDED <function_name>;
+查看所有的内置函数
+hive> show functions;
+
+查看函数的具体语法
+hive> DESCRIBE FUNCTION case;
+OK
+CASE a WHEN b THEN c [WHEN d THEN e]* [ELSE f] END - When a = b, returns c; when a = d, return e; else return f
+
+hive> DESCRIBE FUNCTION EXTENDED case;
+
+hive> DESCRIBE FUNCTION EXTENDED case;
+OK
+CASE a WHEN b THEN c [WHEN d THEN e]* [ELSE f] END - When a = b, returns c; when a = d, return e; else return f
+Example:
+ SELECT
+ CASE deptno
+   WHEN 1 THEN Engineering
+   WHEN 2 THEN Finance
+   ELSE admin
+ END,
+ CASE zone
+   WHEN 7 THEN Americas
+  ELSE Asia-Pac
+ END
+ FROM emp_de
+tails
+Hive自定义函数
+Hive 自带了一些函数，比如：max/min等，但是数量有限，自己可以通过自定义UDF来方便的扩展。
+
+当Hive提供的内置函数无法满足你的业务处理需要时，此时就可以考虑使用用户自定义函数（UDF：user-defined function）。
+
+根据用户自定义函数类别分为以下三种：
+
+（1）UDF（User-Defined-Function）
+一进一出
+
+（2）UDAF（User-Defined Aggregation Function）
+聚集函数，多进一出
+类似于：count/max/min
+
+（3）UDTF（User-Defined Table-Generating Functions）
+一进多出
+如lateral view explore()
+
+官方文档地址
+
+编程步骤
+1）继承org.apache.hadoop.hive.ql.UDF
+
+2）需要实现evaluate函数；evaluate函数支持重载；
+注意事项
+1）UDF必须要有返回类型，可以返回null，但是返回类型不能为void；
+
+2）UDF中常用Text/LongWritable等类型，不推荐使用java类型；
+自定义函数开发案例
+1）创建一个java工程，并创建一个lib文件夹
+
+2）将hive的jar包解压后，将apache-hive-1.2.2-bin\lib文件下的jar包都拷贝到java工程中
+
+3）创建一个类
+
+package com.example.hive.udf;
+import org.apache.hadoop.hive.ql.exec.UDF;
+
+public class Lower extends UDF {
+
+    public String evaluate(final String s) {
+
+        if (s == null) {
+            return null;
+        }
+
+        return s.toString().toLowerCase();
+    }
+}
+4）打成jar包上传到服务器/opt/module/jars/udf.jar
+
+5）将jar包添加到hive的classpath
+
+hive> add jar /opt/module/jars/udf.jar;
+6）创建自定义函数有两种格式:临时函数，永久函数（0.13版本后)：
+
+hive> create temporary function my_lower as 'com.example.hive.udf.Lower';
+
+hive> create function my_db.my_lower as 'com.example.hive.udf.Lower';
+7）即可在hql中使用自定义的函数strip
+
+hive> select ename, my_lower(ename) lowername from emp;
+永久函数
+把jar包上传到hdfs上
+
+[root@hadoop001 lib]$ hdfs dfs -put /home/hadoop/lib/hive-1.0.jar /lib
+[root@hadoop001 lib]$ hdfs dfs -ls /lib
+-rw-r--r--   1 hadoop supergroup       4232 2018-01-14 08:03 /lib/hive-1.0.jar
+创建永久函数
+
+hive> CREATE FUNCTION say_hello1
+    > AS 'cn.example.HelloUdf'
+    > USING JAR 'hdfs:///lib/hive-1.0.jar';
+converting to local hdfs:///lib/hive-1.0.jar
+Added [/tmp/7f999adc-e8a4-4642-af56-581f078cdc32_resources/hive-1.0.jar] to class path
+Added resources: [hdfs:///lib/hive-1.0.jar]
+OK
+测试
+
+hive> select ename,say_hello1(ename)from emp;
+OK
+ENAME   Hello:ENAME
+SMITH   Hello:SMITH
+ALLEN   Hello:ALLEN
+WARD    Hello:WARD
+JONES   Hello:JONES
+MARTIN  Hello:MARTIN
+Time taken: 0.084 seconds, Fetched: 6 row(s)
+MySQL中查询创建的自定义函数
+mysql> select * from funcs;
++---------+---------------------+-------------+-------+------------+-----------+------------+------------+
+| FUNC_ID | CLASS_NAME          | CREATE_TIME | DB_ID | FUNC_NAME  | FUNC_TYPE | OWNER_NAME | OWNER_TYPE |
++---------+---------------------+-------------+-------+------------+-----------+------------+------------+
+|       1 | cn.zhangyu.HelloUdf |  1515888313 |     1 | say_hello1 |         1 | NULL       | USER       |
++---------+---------------------+-------------+-------+------------+-----------+------------+------------+
+1 row in set (0.00 sec)
