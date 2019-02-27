@@ -1,0 +1,423 @@
+Hive元数据
+Hive的原数据表，默认是存储在derby中的，但是我们一般会修改为mysql。
+
+
+hive-site.xml
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+    <property>
+          <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://localhost:3306/hive?createDatabaseIfNotExist=true</value>
+    </property>
+    <property>
+          <name>javax.jdo.option.ConnectionDriverName</name>
+       <value>com.mysql.jdbc.Driver</value>
+    </property>
+    <property>
+          <name>javax.jdo.option.ConnectionUserName</name>
+        <value>root</value>
+       </property>
+       <property>
+          <name>javax.jdo.option.ConnectionPassword</name>
+        <value>123456</value>
+       </property>
+       <property>
+        <name>hive.cli.print.header</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.cli.print.current.db</name>
+        <value>true</value>
+    </property>
+
+</configuration>
+查看hive元数据涉及的表
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| coderf             |
+| hive               |
+| mysql              |
+| performance_schema |
+| test               |
++--------------------+
+6 rows in set (0.00 sec)
+
+mysql> use hive;
+Database changed
+mysql> show tables;
++---------------------------+
+| Tables_in_hive            |
++---------------------------+
+| bucketing_cols            |
+| cds                       |
+| columns_v2                |
+| database_params           |
+| dbs                       |
+| func_ru                   |
+| funcs                     |
+| global_privs              |
+| part_col_stats            |
+| partition_key_vals        |
+| partition_keys            |
+| partition_params          |
+| partitions                |
+| roles                     |
+| sd_params                 |
+| sds                       |
+| sequence_table            |
+| serde_params              |
+| serdes                    |
+| skewed_col_names          |
+| skewed_col_value_loc_map  |
+| skewed_string_list        |
+| skewed_string_list_values |
+| skewed_values             |
+| sort_cols                 |
+| tab_col_stats             |
+| table_params              |
+| tbls                      |
+| version                   |
++---------------------------+
+29 rows in set (0.00 sec)
+Hive版本表（version）
+存储Hive版本的元数据表，如果该表出现问题，根本进入不了Hive-Cli。比如该表不存在，当启动Hive-Cli时候，就会报错”Table ‘hive.version’ doesn’t exist”。
+
+mysql> select * from version;
++--------+----------------+-----------------------------------------+
+| VER_ID | SCHEMA_VERSION | VERSION_COMMENT                         |
++--------+----------------+-----------------------------------------+
+|      1 | 1.1.0          | Set by MetaStore mysqladmin@192.168.0.2 |
++--------+----------------+-----------------------------------------+
+1 row in set (0.00 sec)
+Hive数据库相关的元数据表（DBS、DATABASE_PARAMS）
+DBS
+mysql> select * from dbs;
++-------+-----------------------+--------------------------------------+---------+------------+------------+
+| DB_ID | DESC                  | DB_LOCATION_URI                      | NAME    | OWNER_NAME | OWNER_TYPE |
++-------+-----------------------+--------------------------------------+---------+------------+------------+
+|     1 | Default Hive database | hdfs://mycluster/user/hive/warehouse | default | public     | ROLE       |
++-------+-----------------------+--------------------------------------+---------+------------+------------+
+1 row in set (0.00 sec)
+DB_ID：数据库ID
+
+DESC：数据库描述信息
+
+DB_LOCATION_URI：数据库HDFS路径
+
+NAME：数据库名称
+
+OWNER_NAME：数据库所有者用户名
+
+OWNER_TYPE：数据库所有者角色
+
+DATABASE_PARAMS
+该表存储数据库的相关参数，在CREATE DATABASE时候用
+WITH DBPROPERTIES (property_name=property_value, …)指定的参数。
+
+元数据表字段	说明	示例数据
+DB_ID	数据库ID	1
+PARAM_KEY	参数名	createdby
+PARAM_VALUE	参数值	coderf
+Hive表和视图相关的元数据表
+TBLS
+mysql> select * from tbls;
++--------+-------------+-------+------------------+-------+-----------+-------+-------------------+---------------+--------------------+--------------------+
+| TBL_ID | CREATE_TIME | DB_ID | LAST_ACCESS_TIME | OWNER | RETENTION | SD_ID | TBL_NAME          | TBL_TYPE      | VIEW_EXPANDED_TEXT | VIEW_ORIGINAL_TEXT |
++--------+-------------+-------+------------------+-------+-----------+-------+-------------------+---------------+--------------------+--------------------+
+|      1 |  1518415174 |     1 |                0 | root  |         0 |     1 | helloworld        | MANAGED_TABLE | NULL               | NULL               |
+|      6 |  1520056550 |     1 |                0 | root  |         0 |     6 | page_views        | MANAGED_TABLE | NULL               | NULL               |
+|     11 |  1520064829 |     1 |                0 | root  |         0 |    11 | page_views_snappy | MANAGED_TABLE | NULL               | NULL               |
+|     16 |  1520444005 |     1 |                0 | root  |         0 |    16 | lzo               | MANAGED_TABLE | NULL               | NULL               |
++--------+-------------+-------+------------------+-------+-----------+-------+-------------------+---------------+--------------------+--------------------+
+4 rows in set (0.00 sec)
+TBL_ID：表ID
+
+CREATE_TIME：创建时间
+
+DB_ID：数据库ID
+
+LAST_ACCESS_TIME：上次访问时间
+
+OWNER：所有者
+
+RETENTION：保留字段
+
+SD_ID：序列号配置信息（对应SDS表中的SD_ID）
+
+TBL_NAME：表名
+
+TBL_TYPE：表类型
+
+VIEW_EXPANDED_TEXT：视图的详细HQL语句
+
+VIEW_ORIGINAL_TEXT：视图的原始HQL语句
+
+TABLE_PARAMS
+mysql> select * from table_params;
++--------+-----------------------+-------------+
+| TBL_ID | PARAM_KEY             | PARAM_VALUE |
++--------+-----------------------+-------------+
+|      1 | COLUMN_STATS_ACCURATE | true        |
+|      1 | numFiles              | 1           |
+|      1 | numRows               | 0           |
+|      1 | rawDataSize           | 0           |
+|      1 | totalSize             | 27          |
+|      1 | transient_lastDdlTime | 1518459827  |
+|      6 | COLUMN_STATS_ACCURATE | true        |
+|      6 | numFiles              | 1           |
+|      6 | numRows               | 0           |
+|      6 | rawDataSize           | 0           |
+|      6 | totalSize             | 19014993    |
+|      6 | transient_lastDdlTime | 1520056601  |
+|     11 | COLUMN_STATS_ACCURATE | true        |
+|     11 | numFiles              | 1           |
+|     11 | numRows               | 100000      |
+|     11 | rawDataSize           | 18914993    |
+|     11 | totalSize             | 8813722     |
+|     11 | transient_lastDdlTime | 1520064829  |
+|     16 | transient_lastDdlTime | 1520444005  |
++--------+-----------------------+-------------+
+19 rows in set (0.00 sec)
+TBL_ID：表ID
+
+PARAM_KEY：属性名
+
+PARAM_VALUE：属性值
+
+TBL_PRIVS
+该表存储表、视图的授权信息
+
+Hive文件存储信息相关的元数据表
+由于HDFS支持的文件格式很多，而建Hive表时候也可以指定各种文件格式，Hive在将HQL解析成MapReduce时候，需要知道去哪里，使用哪种格式去读写HDFS文件，而这些信息就保存在这几张表中。
+
+SDS
+文件存储的基本信息
+
+mysql> select * from sds; 
++-------+-------+------------------------------------------------+---------------+---------------------------+--------------------------------------------------------+-------------+------------------------------------------------------------+----------+
+| SD_ID | CD_ID | INPUT_FORMAT                                   | IS_COMPRESSED | IS_STOREDASSUBDIRECTORIES | LOCATION                                               | NUM_BUCKETS | OUTPUT_FORMAT                                              | SERDE_ID |
++-------+-------+------------------------------------------------+---------------+---------------------------+--------------------------------------------------------+-------------+------------------------------------------------------------+----------+
+|     1 |     1 | org.apache.hadoop.mapred.TextInputFormat       |               |                           | hdfs://mycluster/user/hive/warehouse/helloworld        |          -1 | org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat |        1 |
+|     6 |     6 | org.apache.hadoop.mapred.TextInputFormat       |               |                           | hdfs://mycluster/user/hive/warehouse/page_views        |          -1 | org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat |        6 |
+|    11 |    11 | org.apache.hadoop.mapred.TextInputFormat       |               |                           | hdfs://mycluster/user/hive/warehouse/page_views_snappy |          -1 | org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat |       11 |
+|    16 |    16 | com.hadoop.mapred.DeprecatedLzoTextInputFormat |               |                           | hdfs://mycluster/user/hive/warehouse/lzo               |          -1 | org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat |       16 |
++-------+-------+------------------------------------------------+---------------+---------------------------+--------------------------------------------------------+-------------+------------------------------------------------------------+----------+
+4 rows in set (0.00 sec)
+SD_ID：存储信息ID（对应tbl_id）
+
+CD_ID：字段信息ID（对应column_v2 的CD_ID）
+
+INPUT_FORMAT：文件输入格式
+
+IS_COMPRESSED：是否压缩
+
+IS_STOREDASSUBDIRECTORIES：是否以子目录存储
+
+LOCATION：HDFS路径
+
+NUM_BUCKETS：分桶数量
+
+OUTPUT_FORMAT：文件输出格式
+
+SERDE_ID：序列化类ID
+
+SD_PARAMS
+该表存储Hive存储的属性信息，在创建表时候使用
+STORED BY ‘storage.handler.class.name’ [WITH SERDEPROPERTIES (…)指定。
+
+SERDES
+存储序列化使用的类信息
+
+mysql> select * from serdes; 
++----------+------+----------------------------------------------------+
+| SERDE_ID | NAME | SLIB                                               |
++----------+------+----------------------------------------------------+
+|        1 | NULL | org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe |
+|        6 | NULL | org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe |
+|       11 | NULL | org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe |
+|       16 | NULL | org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe |
++----------+------+----------------------------------------------------+
+4 rows in set (0.00 sec)
+
+SERDE_ID：序列化类配置ID（对应SDS的 SERDE_ID）
+
+NAME：序列化类别名
+
+SLIB：序列化类
+
+SERDE_PARAMS
+存储序列化的一些属性、格式信息,比如：行、列分隔符
+
+mysql> select * from serde_params; 
++----------+----------------------+-------------+
+| SERDE_ID | PARAM_KEY            | PARAM_VALUE |
++----------+----------------------+-------------+
+|        1 | field.delim          |                |
+|        1 | serialization.format |                |
+|        6 | field.delim          |                |
+|        6 | serialization.format |                |
+|       11 | field.delim          |                |
+|       11 | serialization.format |                |
+|       16 | serialization.format | 1           |
++----------+----------------------+-------------+
+7 rows in set (0.01 sec)
+SERDE_ID：序列化类配置ID（对应SDS的 SERDE_ID）
+
+PARAM_KEY：属性名
+
+PARAM_VALUE：属性值
+
+Hive表字段相关的元数据表
+columns_v2
+表的字段信息
+
+mysql> select * from columns_v2; 
++-------+---------+-------------+-----------+-------------+
+| CD_ID | COMMENT | COLUMN_NAME | TYPE_NAME | INTEGER_IDX |
++-------+---------+-------------+-----------+-------------+
+|     1 | NULL    | id          | int       |           0 |
+|     1 | NULL    | name        | string    |           1 |
+|     6 | NULL    | city_id     | string    |           6 |
+|     6 | NULL    | end_user_id | string    |           5 |
+|     6 | NULL    | ip          | string    |           4 |
+|     6 | NULL    | referer     | string    |           3 |
+|     6 | NULL    | session_id  | string    |           2 |
+|     6 | NULL    | track_time  | string    |           0 |
+|     6 | NULL    | url         | string    |           1 |
+|    11 | NULL    | city_id     | string    |           6 |
+|    11 | NULL    | end_user_id | string    |           5 |
+|    11 | NULL    | ip          | string    |           4 |
+|    11 | NULL    | referer     | string    |           3 |
+|    11 | NULL    | session_id  | string    |           2 |
+|    11 | NULL    | track_time  | string    |           0 |
+|    11 | NULL    | url         | string    |           1 |
+|    16 | NULL    | id          | int       |           0 |
+|    16 | NULL    | name        | string    |           1 |
++-------+---------+-------------+-----------+-------------+
+18 rows in set (0.00 sec)
+CD_ID：字段信息ID（对应SDS 表CD_ID）
+
+COMMENT：字段注释
+
+COLUMN_NAME：字段名
+
+TYPE_NAME：字段类型
+
+INTEGER_IDX：字段顺序
+
+Hive表分区相关的元数据表
+主要涉及PARTITIONS、PARTITION_KEYS、PARTITION_KEY_VALS、 PARTITION_PARAMS
+
+PARTITIONS
+分区的基本信息
+
+mysql> select * from partitions ;
++---------+-------------+------------------+--------------+-------+--------+
+| PART_ID | CREATE_TIME | LAST_ACCESS_TIME | PART_NAME    | SD_ID | TBL_ID |
++---------+-------------+------------------+--------------+-------+--------+
+|       1 |  1529474368 |                0 | month=201709 |    23 |     22 |
+|       2 |  1529474481 |                0 | month=201708 |    24 |     22 |
++---------+-------------+------------------+--------------+-------+--------+
+2 rows in set (0.00 sec)
+PART_ID：分区ID
+
+CREATE_TIME：分区创建时间
+
+LAST_ACCESS_TIME：最后一次访问时间
+
+PART_NAME：分区名
+
+SD_ID：分区存储ID
+
+TBL_ID：表ID
+
+PARTITION_KEYS
+分区的字段信息
+
+mysql> select * from partition_keys; 
++--------+--------------+-------------+-----------+-------------+
+| TBL_ID | PKEY_COMMENT | PKEY_NAME   | PKEY_TYPE | INTEGER_IDX |
++--------+--------------+-------------+-----------+-------------+
+|     21 | NULL         | event_month | string    |           0 |
+|     22 | NULL         | month       | string    |           0 |
++--------+--------------+-------------+-----------+-------------+
+2 rows in set (0.00 sec)
+TBL_ID：表ID
+
+PKEY_COMMENT：分区字段说明
+
+PKEY_NAME：分区字段名
+
+PKEY_TYPE：分区字段类型
+
+INTEGER_IDX：分区字段顺序
+
+PARTITION _KEY _VALS
+分区字段值
+
+mysql> select * from partition_key_vals; 
++---------+--------------+-------------+
+| PART_ID | PART_KEY_VAL | INTEGER_IDX |
++---------+--------------+-------------+
+|       1 | 201709       |           0 |
+|       2 | 201708       |           0 |
++---------+--------------+-------------+
+2 rows in set (0.00 sec)
+PART_ID：分区ID
+
+PART_KEY_VAL：分区字段值
+
+INTEGER_IDX：分区字段值顺序
+
+PARTITION_PARAMS
+分区的属性信息
+
+mysql> select * from partition_params; 
++---------+-----------------------+-------------+
+| PART_ID | PARAM_KEY             | PARAM_VALUE |
++---------+-----------------------+-------------+
+|       1 | COLUMN_STATS_ACCURATE | true        |
+|       1 | numFiles              | 1           |
+|       1 | numRows               | 0           |
+|       1 | rawDataSize           | 0           |
+|       1 | totalSize             | 258         |
+|       1 | transient_lastDdlTime | 1529474368  |
+|       2 | COLUMN_STATS_ACCURATE | true        |
+|       2 | numFiles              | 1           |
+|       2 | numRows               | 0           |
+|       2 | rawDataSize           | 0           |
+|       2 | totalSize             | 258         |
+|       2 | transient_lastDdlTime | 1529474481  |
++---------+-----------------------+-------------+
+12 rows in set (0.00 sec)
+PART_ID：分区ID
+
+PARAM_KEY：分区属性名
+
+PARAM_VALUE：分区属性值
+
+其他元数据表
+DB_PRIVS：数据库权限信息表。通过GRANT语句对数据库授权后，将会在这里存储
+
+IDXS：索引表，存储Hive索引相关的元数据
+
+INDEX_PARAMS ：索引相关的属性信息
+
+TAB_COL_STATS：表字段的统计信息，使用ANALYZE语句对表字段分析后记录在这里
+
+TBL_COL_PRIVS：表字段的授权信息
+
+PART_PRIVS：分区的授权信息
+
+PART_COL_STATS：分区字段的统计信息
+
+PART_COL_PRIVS：分区字段的权限信息
+
+FUNCS：用户注册的函数信息
+
+FUNC_RU：用户注册函数的资源信息
