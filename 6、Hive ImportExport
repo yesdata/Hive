@@ -1,0 +1,73 @@
+官网语法
+Hive 0.8.0 之后引入了EXPORT and IMPORT 命令
+EXPORT命令将表或分区的数据连同元数据一起导出到指定的输出位置（HDFS上）。然后可以将此输出位置移至不同的Hadoop或Hive实例，并使用IMPORT命令进行导入操作。
+
+导出分区表时，原始数据可能位于不同的HDFS位置。还支持导出/导入分区子集的功能。
+
+导出的元数据存储在目标目录中，数据文件存储在子目录中。
+
+EXPORT和IMPORT命令独立于所使用的源和目标Metastore DBMS工作;例如，它们可以在Derby和MySQL数据库之间使用。
+
+EXPORT
+EXPORT TABLE tablename [PARTITION (part_column="value"[, ...])]
+  TO 'export_target_path' [ FOR replication('eventid') ]
+1
+2
+将数据导出到HDFS
+
+ export table join_a to '/home/hadoop/data';
+Copying data from file:/tmp/hadoop/b96064b0-888a-4618-a110-fc9d09d7c00b/hive_2018-01-10_08-05-04_501_1397817648848080864-1/-local-10000/_metadata
+Copying file: file:/tmp/hadoop/b96064b0-888a-4618-a110-fc9d09d7c00b/hive_2018-01-10_08-05-04_501_1397817648848080864-1/-local-10000/_metadata
+Copying data from hdfs://192.168.137.200:9000/user/hive/warehouse/join_a
+Copying file: hdfs://192.168.137.200:9000/user/hive/warehouse/join_a/join_a.txt
+OK
+查看HDFS上的数据
+
+[root@hadoop001 export]$ hdfs dfs -ls /home/hadoop/data
+Found 2 items
+-rwxr-xr-x   1 hadoop supergroup       1259 2018-01-10 08:05 /home/hadoop/data/_metadata
+drwxr-xr-x   - hadoop supergroup          0 2018-01-10 08:05 /home/hadoop/data/data
+Hive Shell命令导出
+语法：hive -f/-e 执行语句或者脚本 > file
+
+[root@hadoop001 hive]$ bin/hive -e 'select * from default.student;' > /opt/module/datas/export/student4.txt;
+IMPORT
+IMPORT [[EXTERNAL] TABLE new_or_original_tablename [PARTITION (part_column="value"[, ...])]]
+  FROM 'source_path'
+  [LOCATION 'import_target_path']
+导入数据
+
+hive> import table join_a from '/home/hadoop/data';
+Copying data from hdfs://192.168.137.200:9000/home/hadoop/data/data
+Copying file: hdfs://192.168.137.200:9000/home/hadoop/data/data/join_a.txt
+Loading data to table hive1.join_a
+OK
+Time taken: 7.444 seconds
+查询
+
+hive> show tables;
+OK
+join_a
+
+hive> select * from join_a;
+OK
+1       zhangsan
+2       lisi
+3       wangwu1
+其他例子
+Rename table on import:（重命名表名）
+export table department to 'hdfs_exports_location/department';
+import table imported_dept from 'hdfs_exports_location/department';
+Export partition and import:（导出加上分区）
+export table employee partition (emp_country="in", emp_state="ka") to 'hdfs_exports_location/employee';
+import from 'hdfs_exports_location/employee';
+Export table and import partition:（导入加上分区）
+export table employee to 'hdfs_exports_location/employee';
+import table employee partition (emp_country="us", emp_state="tn") from 'hdfs_exports_location/employee';
+Specify the import location:（指定地址）
+export table department to 'hdfs_exports_location/department';
+import table department from 'hdfs_exports_location/department' 
+   location 'import_target_location/department';
+Import as an external table:
+export table department to 'hdfs_exports_location/department';
+import external table department from 'hdfs_exports_location/department';
