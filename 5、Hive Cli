@@ -1,0 +1,88 @@
+官网语法
+Hive Command Line Options
+To get help, run "hive -H" or "hive --help".
+Usage (as it is in Hive 0.9.0):
+
+usage: hive
+ -d,--define <key=value>          Variable substitution to apply to Hive
+                                 commands. e.g. -d A=B or --define A=B
+ -e <quoted-query-string>         SQL from command line
+ -f <filename>                    SQL from files
+ -H,--help                        Print help information
+ -h <hostname>                    Connecting to Hive Server on remote host
+--hiveconf <property=value>   Use value for given property
+--hivevar <key=value>         Variable substitution to apply to hive
+                                      commands. e.g. --hivevar A=B
+ -i <filename>                    Initialization SQL file
+ -p <port>                        Connecting to Hive Server on port number
+ -S,--silent                      Silent mode in interactive shell
+ -v,--verbose                     Verbose mode (echo executed SQL to the
+                                  console)
+hive -e
+[root@hadoop001 data]$ hive -e 'select * from default.student';
+
+OK
+1       zhangsan        18310982765     20
+2       lisi    18282823434     30
+3       wangwu  1575757668      40
+Time taken: 3.373 seconds, Fetched: 3 row(s)
+
+[root@hadoop0011 data]$ hive -e 'show tables';
+OK
+dept
+dept1
+emmp2
+emp
+emp1
+emp3
+emp_dynamic_partition
+emp_partition
+helloword
+order_multi_partition
+order_partition
+stu
+stu_age_partition
+student
+Time taken: 1.352 seconds, Fetched: 14 row(s)
+hive -s(数据存储到指定的目录)
+[root@hadoop001 data]$ hive -S -e 'show tables' > a.txt
+
+[hadoop@zydatahadoop001 data]$ ll
+total 12
+-rw-r--r--. 1 hadoop hadoop  18 Jan  9 10:35 000000_0
+-rw-rw-r--. 1 hadoop hadoop 145 Jan 10 01:33 a.txt
+-rw-rw-r--. 1 hadoop hadoop 113 Jan 10 00:48 student.txt
+[hadoop@zydatahadoop001 data]$ cat a.txt 
+dept
+dept1
+emmp2
+emp
+emp1
+emp3
+emp_dynamic_partition
+emp_partition
+helloword
+order_multi_partition
+order_partition
+stu
+stu_age_partition
+student
+hive -f
+使用非交互的方式执行本地脚本
+
+[root@hadoop001 data]$  vi hfile.sql  
+select * from default.student ;
+
+[hadoop@zydatahadoop001 data]$ hive -f hfile.sql 
+OK
+1       zhangsan        18310982765     20
+2       lisi    18282823434     30
+3       wangwu  1575757668      40
+Time taken: 2.14 seconds, Fetched: 3 row(s)
+hive -i
+在初始化脚本之前进入到交互模式
+
+[root@hadoop001 data]$ hive -i hfile.sql
+1       zhangsan        18310982765     20
+2       lisi    18282823434     30
+3       wangwu  1575757668      40
